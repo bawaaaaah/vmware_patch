@@ -1,5 +1,6 @@
---- vmnet-only/filter.c 2013-10-18 23:11:55.000000000 +0400
-+++ vmnet-only/filter.c 2013-12-03 04:16:31.751352170 +0400
+diff -Naur a/vmnet-only/filter.c b/vmnet-only/filter.c
+--- a/vmnet-only/filter.c	2013-10-18 21:11:55.000000000 +0200
++++ b/vmnet-only/filter.c	2014-03-11 15:34:35.749065652 +0100
 @@ -27,6 +27,7 @@
  #include "compat_module.h"
  #include <linux/mutex.h>
@@ -20,17 +21,15 @@
  #ifdef VMW_NFHOOK_USES_SKB
                   struct sk_buff *skb,                  // IN:
  #else
-@@ -252,7 +257,14 @@
+@@ -252,7 +257,11 @@
  
     /* When the host transmits, hooknum is VMW_NF_INET_POST_ROUTING. */
     /* When the host receives, hooknum is VMW_NF_INET_LOCAL_IN. */
--   transmit = (hooknum == VMW_NF_INET_POST_ROUTING);
-+
 +#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
-+    transmit = (hooknum == VMW_NF_INET_POST_ROUTING);
+    transmit = (hooknum == VMW_NF_INET_POST_ROUTING);
 +#else
-+    transmit = (ops->hooknum == VMW_NF_INET_POST_ROUTING);
++   transmit = (ops->hooknum == VMW_NF_INET_POST_ROUTING);
 +#endif
-+
+ 
     packetHeader = compat_skb_network_header(skb);
     ip = (struct iphdr*)packetHeader;

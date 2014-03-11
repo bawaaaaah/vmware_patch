@@ -1,56 +1,56 @@
-diff -Naur vmblock-only/linux/control.c vmblock-only-old/linux/control.c
---- vmblock-only/linux/control.c	2014-03-11 16:08:30.849167838 +0100
-+++ vmblock-only-old/linux/control.c	2014-03-11 16:07:15.529164056 +0100
-@@ -208,18 +208,17 @@
+diff -Naur a/vmblock-only/linux/control.c b/vmblock-only/linux/control.c
+--- a/vmblock-only/linux/control.c	2014-03-11 16:07:15.529164056 +0100
++++ b/vmblock-only/linux/control.c	2014-03-11 16:08:30.000000000 +0100
+@@ -208,17 +208,18 @@
     VMBlockSetProcEntryOwner(controlProcMountpoint);
  
     /* Create /proc/fs/vmblock/dev */
--   /*controlProcEntry = create_proc_entry(VMBLOCK_CONTROL_DEVNAME,
-+   controlProcEntry = create_proc_entry(VMBLOCK_CONTROL_DEVNAME,
+-   controlProcEntry = create_proc_entry(VMBLOCK_CONTROL_DEVNAME,
++   /*controlProcEntry = create_proc_entry(VMBLOCK_CONTROL_DEVNAME,
                                          VMBLOCK_CONTROL_MODE,
--                                        controlProcDirEntry);*/
--   controlProcEntry = proc_create(VMBLOCK_CONTROL_DEVNAME, VMBLOCK_CONTROL_MODE, controlProcDirEntry, &ControlFileOps);
--   if (controlProcEntry == NULL) {
-+                                        controlProcDirEntry);
-+   if (!controlProcEntry) {
+-                                        controlProcDirEntry);
+-   if (!controlProcEntry) {
++                                        controlProcDirEntry);*/
++   controlProcEntry = proc_create(VMBLOCK_CONTROL_DEVNAME, VMBLOCK_CONTROL_MODE, controlProcDirEntry, &ControlFileOps);
++   if (controlProcEntry == NULL) {
        Warning("SetupProcDevice: could not create " VMBLOCK_DEVICE "\n");
        remove_proc_entry(VMBLOCK_CONTROL_MOUNTPOINT, controlProcDirEntry);
        remove_proc_entry(VMBLOCK_CONTROL_PROC_DIRNAME, NULL);
        return -EINVAL;
     }
  
--   /* controlProcEntry->proc_fops = &ControlFileOps; */
-+   controlProcEntry->proc_fops = &ControlFileOps;
+-   controlProcEntry->proc_fops = &ControlFileOps;
++   /* controlProcEntry->proc_fops = &ControlFileOps; */
     return 0;
  }
  
-@@ -283,7 +282,7 @@
+@@ -282,7 +283,7 @@
     int i;
     int retval;
  
--   name = (char*)getname(buf)->name;
-+   name = getname(buf);
+-   name = getname(buf);
++   name = (char*)getname(buf)->name;
     if (IS_ERR(name)) {
        return PTR_ERR(name);
     }
-@@ -294,7 +293,7 @@
+@@ -293,7 +294,7 @@
  
     retval = i < 0 ? -EINVAL : blockOp(name, blocker);
  
--   __putname(name);
-+   putname(name);
+-   putname(name);
++   __putname(name);
  
     return retval;
  }
-diff -Naur vmblock-only/linux/dentry.c vmblock-only-old/linux/dentry.c
---- vmblock-only/linux/dentry.c	2014-03-11 16:08:30.849167838 +0100
-+++ vmblock-only-old/linux/dentry.c	2014-03-11 16:07:15.529164056 +0100
+diff -Naur a/vmblock-only/linux/dentry.c b/vmblock-only/linux/dentry.c
+--- a/vmblock-only/linux/dentry.c	2014-03-11 16:07:15.529164056 +0100
++++ b/vmblock-only/linux/dentry.c	2014-03-11 16:08:30.000000000 +0100
 @@ -32,7 +32,7 @@
  #include "block.h"
  
  
--static int DentryOpRevalidate(struct dentry *dentry, unsigned int flags);
-+static int DentryOpRevalidate(struct dentry *dentry, struct nameidata *nd);
+-static int DentryOpRevalidate(struct dentry *dentry, struct nameidata *nd);
++static int DentryOpRevalidate(struct dentry *dentry, unsigned int flags);
  
  struct dentry_operations LinkDentryOps = {
     .d_revalidate = DentryOpRevalidate,
@@ -58,8 +58,8 @@ diff -Naur vmblock-only/linux/dentry.c vmblock-only-old/linux/dentry.c
  
  static int
  DentryOpRevalidate(struct dentry *dentry,  // IN: dentry revalidating
--                   unsigned int flags)     // IN: lookup flags & intent
-+                   struct nameidata *nd)   // IN: lookup flags & intent
+-                   struct nameidata *nd)   // IN: lookup flags & intent
++                   unsigned int flags)     // IN: lookup flags & intent
  {
     VMBlockInodeInfo *iinfo;
     struct nameidata actualNd;
@@ -67,110 +67,110 @@ diff -Naur vmblock-only/linux/dentry.c vmblock-only-old/linux/dentry.c
     if (actualDentry &&
         actualDentry->d_op &&
         actualDentry->d_op->d_revalidate) {
--      return actualDentry->d_op->d_revalidate(actualDentry, flags);
-+      return actualDentry->d_op->d_revalidate(actualDentry, nd);
+-      return actualDentry->d_op->d_revalidate(actualDentry, nd);
++      return actualDentry->d_op->d_revalidate(actualDentry, flags);
     }
  
     if (compat_path_lookup(iinfo->name, 0, &actualNd)) {
-diff -Naur vmblock-only/linux/file.c vmblock-only-old/linux/file.c
---- vmblock-only/linux/file.c	2014-03-11 16:08:27.472501002 +0100
-+++ vmblock-only-old/linux/file.c	2014-03-11 16:07:15.529164056 +0100
-@@ -38,6 +38,46 @@
+diff -Naur a/vmblock-only/linux/file.c b/vmblock-only/linux/file.c
+--- a/vmblock-only/linux/file.c	2014-03-11 16:07:15.529164056 +0100
++++ b/vmblock-only/linux/file.c	2014-03-11 16:08:27.000000000 +0100
+@@ -38,46 +38,6 @@
  typedef ino_t inode_num_t;
  #endif
  
-+/* Specifically for our filldir_t callback */
-+typedef struct FilldirInfo {
-+   filldir_t filldir;
-+   void *dirent;
-+} FilldirInfo;
-+
-+
-+/*
-+ *----------------------------------------------------------------------------
-+ *
-+ * Filldir --
-+ *
-+ *    Callback function for readdir that we use in place of the one provided.
-+ *    This allows us to specify that each dentry is a symlink, but pass through
-+ *    everything else to the original filldir function.
-+ *
-+ * Results:
-+ *    Original filldir's return value.
-+ *
-+ * Side effects:
-+ *    Directory information gets copied to user's buffer.
-+ *
-+ *----------------------------------------------------------------------------
-+ */
-+
-+static int
-+Filldir(void *buf,              // IN: Dirent buffer passed from FileOpReaddir
-+        const char *name,       // IN: Dirent name
-+        int namelen,            // IN: len of dirent's name
-+        loff_t offset,          // IN: Offset
-+        inode_num_t ino,        // IN: Inode number of dirent
-+        unsigned int d_type)    // IN: Type of file
-+{
-+   FilldirInfo *info = buf;
-+
-+   /* Specify DT_LNK regardless */
-+   return info->filldir(info->dirent, name, namelen, offset, ino, DT_LNK);
-+}
-+
-+
+-/* Specifically for our filldir_t callback */
+-typedef struct FilldirInfo {
+-   filldir_t filldir;
+-   void *dirent;
+-} FilldirInfo;
+-
+-
+-/*
+- *----------------------------------------------------------------------------
+- *
+- * Filldir --
+- *
+- *    Callback function for readdir that we use in place of the one provided.
+- *    This allows us to specify that each dentry is a symlink, but pass through
+- *    everything else to the original filldir function.
+- *
+- * Results:
+- *    Original filldir's return value.
+- *
+- * Side effects:
+- *    Directory information gets copied to user's buffer.
+- *
+- *----------------------------------------------------------------------------
+- */
+-
+-static int
+-Filldir(void *buf,              // IN: Dirent buffer passed from FileOpReaddir
+-        const char *name,       // IN: Dirent name
+-        int namelen,            // IN: len of dirent's name
+-        loff_t offset,          // IN: Offset
+-        inode_num_t ino,        // IN: Inode number of dirent
+-        unsigned int d_type)    // IN: Type of file
+-{
+-   FilldirInfo *info = buf;
+-
+-   /* Specify DT_LNK regardless */
+-   return info->filldir(info->dirent, name, namelen, offset, ino, DT_LNK);
+-}
+-
+-
  /* File operations */
  
  /*
-@@ -126,10 +166,11 @@
+@@ -166,11 +126,10 @@
  
  static int
  FileOpReaddir(struct file *file,  // IN
--              struct dir_context *ctx)  // IN
-+              void *dirent,       // IN
-+              filldir_t filldir)  // IN
+-              void *dirent,       // IN
+-              filldir_t filldir)  // IN
++              struct dir_context *ctx)  // IN
  {
     int ret;
--
-+   FilldirInfo info;
+-   FilldirInfo info;
++
     struct file *actualFile;
  
     if (!file) {
-@@ -143,10 +184,12 @@
+@@ -184,12 +143,10 @@
        return -EINVAL;
     }
  
--   /* Ricky Wong Yung Fei:
--    * Manipulation of pos is now handled internally by iterate_dir().
--    */
--   ret = iterate_dir(actualFile, ctx);
-+   info.filldir = filldir;
-+   info.dirent = dirent;
-+
-+   actualFile->f_pos = file->f_pos;
-+   ret = vfs_readdir(actualFile, Filldir, &info);
-+   file->f_pos = actualFile->f_pos;
+-   info.filldir = filldir;
+-   info.dirent = dirent;
+-
+-   actualFile->f_pos = file->f_pos;
+-   ret = vfs_readdir(actualFile, Filldir, &info);
+-   file->f_pos = actualFile->f_pos;
++   /* Ricky Wong Yung Fei:
++    * Manipulation of pos is now handled internally by iterate_dir().
++    */
++   ret = iterate_dir(actualFile, ctx);
  
     return ret;
  }
-@@ -194,7 +237,7 @@
+@@ -237,7 +194,7 @@
  
  
  struct file_operations RootFileOps = {
--   .iterate = FileOpReaddir,
-+   .readdir = FileOpReaddir,
+-   .readdir = FileOpReaddir,
++   .iterate = FileOpReaddir,
     .open    = FileOpOpen,
     .release = FileOpRelease,
  };
-diff -Naur vmblock-only/linux/inode.c vmblock-only-old/linux/inode.c
---- vmblock-only/linux/inode.c	2014-03-11 16:08:30.849167838 +0100
-+++ vmblock-only-old/linux/inode.c	2014-03-11 16:07:15.529164056 +0100
+diff -Naur a/vmblock-only/linux/inode.c b/vmblock-only/linux/inode.c
+--- a/vmblock-only/linux/inode.c	2014-03-11 16:07:15.529164056 +0100
++++ b/vmblock-only/linux/inode.c	2014-03-11 16:08:30.000000000 +0100
 @@ -36,7 +36,7 @@
  
  /* Inode operations */
  static struct dentry *InodeOpLookup(struct inode *dir,
--                                    struct dentry *dentry, unsigned int flags);
-+                                    struct dentry *dentry, struct nameidata *nd);
+-                                    struct dentry *dentry, struct nameidata *nd);
++                                    struct dentry *dentry, unsigned int flags);
  static int InodeOpReadlink(struct dentry *dentry, char __user *buffer, int buflen);
  #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
  static void *InodeOpFollowlink(struct dentry *dentry, struct nameidata *nd);
@@ -178,8 +178,8 @@ diff -Naur vmblock-only/linux/inode.c vmblock-only-old/linux/inode.c
  static struct dentry *
  InodeOpLookup(struct inode *dir,      // IN: parent directory's inode
                struct dentry *dentry,  // IN: dentry to lookup
--              unsigned int flags)     // IN: lookup intent and information
-+              struct nameidata *nd)   // IN: lookup intent and information
+-              struct nameidata *nd)   // IN: lookup intent and information
++              unsigned int flags)     // IN: lookup intent and information
  {
     char *filename;
     struct inode *inode;
@@ -187,8 +187,8 @@ diff -Naur vmblock-only/linux/inode.c vmblock-only-old/linux/inode.c
        goto out;
     }
  
--   nd_set_link(nd, iinfo->name);
-+   ret = vfs_follow_link(nd, iinfo->name);
+-   ret = vfs_follow_link(nd, iinfo->name);
++   nd_set_link(nd, iinfo->name);
  
  out:
  #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 13)
