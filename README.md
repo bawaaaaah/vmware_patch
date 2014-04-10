@@ -25,3 +25,10 @@ vmblock:
 * $ patch -p1 < vmblock-patch-kernel-3.13
 * $ tar -uf vmblock.tar vmblock-only
 * # cp vmblock.tar /usr/lib/vmware/modules/source/
+
+Patch kernel 3.14
+* $ for i in /usr/lib/vmware/modules/source/*.tar; do tar -xf $i; done
+* $ patch -p0 -i vmware-3.14.patch
+* $ for i in *-only; do tar -cf ${i/-only}.tar $i; done
+* $ rm -r *-only
+* # cp *.tar /usr/lib/vmware/modules/source/
